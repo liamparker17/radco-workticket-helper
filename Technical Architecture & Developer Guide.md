@@ -1,8 +1,8 @@
-# CLAUDE.md - Work Ticket System
+Work Ticket System Dev Guide
 
 ## Project Overview
 
-A production work ticket and delivery note management app for a small workshop (Radco). Replaces a paper-based ticket book. Users create customers, issue work tickets, generate delivery notes, and print PDFs.
+A production work ticket and delivery note management app. Replaces a paper-based ticket book. Users create customers, issue work tickets, generate delivery notes, and print PDFs.
 
 ## Tech Stack
 

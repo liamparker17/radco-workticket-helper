@@ -27,13 +27,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify the work ticket exists
+    const qty = parseInt(quantityDelivered);
+    if (qty < 1) {
+      return NextResponse.json(
+        { error: "Quantity delivered must be at least 1" },
+        { status: 400 }
+      );
+    }
+
+    // Verify the work ticket exists and is still open
     const ticket = await prisma.workTicket.findUnique({
       where: { id: workTicketId },
     });
 
     if (!ticket) {
       return NextResponse.json({ error: "Work ticket not found" }, { status: 404 });
+    }
+
+    if (ticket.status !== "OPEN") {
+      return NextResponse.json(
+        { error: "Can only create delivery notes for open tickets" },
+        { status: 400 }
+      );
     }
 
     // Auto-calculate delivery note number
@@ -45,7 +60,7 @@ export async function POST(request: NextRequest) {
         data: {
           deliveryNoteNumber,
           workTicketId,
-          quantityDelivered: parseInt(quantityDelivered),
+          quantityDelivered: qty,
         },
         include: { workTicket: { include: { customer: true } } },
       }),

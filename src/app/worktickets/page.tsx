@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
+import { StatusBadge, Toast } from "@/components/UI";
 
 interface Customer {
   id: number;
@@ -31,6 +32,7 @@ export default function WorkTicketsPage() {
     quantity: "",
   });
   const [error, setError] = useState("");
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
   const loadTickets = useCallback(async () => {
     const params = new URLSearchParams();
@@ -42,6 +44,7 @@ export default function WorkTicketsPage() {
 
   useEffect(() => {
     loadTickets();
+    // Only load active customers for the dropdown
     fetch("/api/customers")
       .then((r) => r.json())
       .then(setCustomers);
@@ -56,13 +59,20 @@ export default function WorkTicketsPage() {
       return;
     }
 
+    const qty = parseInt(form.quantity);
+    if (qty < 1) {
+      setError("Quantity must be at least 1");
+      return;
+    }
+
     const res = await fetch("/api/worktickets", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        ...form,
         customerId: parseInt(form.customerId),
-        quantity: parseInt(form.quantity),
+        customerOrderNumber: form.customerOrderNumber || null,
+        jobDescription: form.jobDescription,
+        quantity: qty,
       }),
     });
 
@@ -72,6 +82,8 @@ export default function WorkTicketsPage() {
       return;
     }
 
+    const ticket = await res.json();
+    setToast({ message: `Work ticket #${ticket.id} created`, type: "success" });
     setForm({ customerId: "", customerOrderNumber: "", jobDescription: "", quantity: "" });
     setShowForm(false);
     loadTickets();
@@ -79,7 +91,9 @@ export default function WorkTicketsPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+
+      <div className="flex items-center justify-between mb-6 flex-wrap gap-2">
         <h1 className="text-2xl font-bold">Work Tickets</h1>
         <div className="flex gap-2">
           <a
@@ -114,6 +128,7 @@ export default function WorkTicketsPage() {
           <option value="">All Status</option>
           <option value="OPEN">Open</option>
           <option value="COMPLETED">Completed</option>
+          <option value="CANCELLED">Cancelled</option>
         </select>
       </div>
 
@@ -122,15 +137,21 @@ export default function WorkTicketsPage() {
         <form onSubmit={handleSubmit} className="card mb-6">
           <h2 className="text-lg font-semibold mb-4">New Work Ticket</h2>
           {error && <p className="text-red-600 text-sm mb-3">{error}</p>}
+          {customers.length === 0 && (
+            <p className="text-yellow-700 bg-yellow-50 rounded p-3 text-sm mb-4">
+              No customers found.{" "}
+              <Link href="/customers" className="underline font-medium">
+                Create a customer first.
+              </Link>
+            </p>
+          )}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="label">Customer *</label>
               <select
                 className="input"
                 value={form.customerId}
-                onChange={(e) =>
-                  setForm({ ...form, customerId: e.target.value })
-                }
+                onChange={(e) => setForm({ ...form, customerId: e.target.value })}
               >
                 <option value="">Select customer...</option>
                 {customers.map((c) => (
@@ -145,9 +166,7 @@ export default function WorkTicketsPage() {
               <input
                 className="input"
                 value={form.customerOrderNumber}
-                onChange={(e) =>
-                  setForm({ ...form, customerOrderNumber: e.target.value })
-                }
+                onChange={(e) => setForm({ ...form, customerOrderNumber: e.target.value })}
               />
             </div>
             <div className="sm:col-span-2">
@@ -155,9 +174,8 @@ export default function WorkTicketsPage() {
               <input
                 className="input"
                 value={form.jobDescription}
-                onChange={(e) =>
-                  setForm({ ...form, jobDescription: e.target.value })
-                }
+                onChange={(e) => setForm({ ...form, jobDescription: e.target.value })}
+                autoFocus
               />
             </div>
             <div>
@@ -167,9 +185,7 @@ export default function WorkTicketsPage() {
                 min="1"
                 className="input"
                 value={form.quantity}
-                onChange={(e) =>
-                  setForm({ ...form, quantity: e.target.value })
-                }
+                onChange={(e) => setForm({ ...form, quantity: e.target.value })}
               />
             </div>
           </div>
@@ -179,15 +195,19 @@ export default function WorkTicketsPage() {
         </form>
       )}
 
+      {/* Results count */}
+      <p className="text-sm text-gray-500 mb-2">
+        {tickets.length} ticket{tickets.length !== 1 ? "s" : ""} found
+      </p>
+
       {/* Ticket list */}
       <div className="card overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b text-left text-gray-500">
-              <th className="pb-2 pr-4">Ticket #</th>
-              <th className="pb-2 pr-4">Date</th>
+              <th className="pb-2 pr-4">#</th>
               <th className="pb-2 pr-4">Customer</th>
-              <th className="pb-2 pr-4">Job</th>
+              <th className="pb-2 pr-4 hidden sm:table-cell">Job</th>
               <th className="pb-2 pr-4">Qty</th>
               <th className="pb-2 pr-4">Status</th>
               <th className="pb-2"></th>
@@ -196,7 +216,7 @@ export default function WorkTicketsPage() {
           <tbody>
             {tickets.length === 0 ? (
               <tr>
-                <td colSpan={7} className="py-4 text-center text-gray-500">
+                <td colSpan={6} className="py-4 text-center text-gray-500">
                   No tickets found
                 </td>
               </tr>
@@ -204,22 +224,13 @@ export default function WorkTicketsPage() {
               tickets.map((t) => (
                 <tr key={t.id} className="border-b last:border-0">
                   <td className="py-2 pr-4 font-medium">{t.id}</td>
-                  <td className="py-2 pr-4">
-                    {new Date(t.createdAt).toLocaleDateString("en-ZA")}
-                  </td>
                   <td className="py-2 pr-4">{t.customer.name}</td>
-                  <td className="py-2 pr-4">{t.jobDescription}</td>
+                  <td className="py-2 pr-4 hidden sm:table-cell max-w-[200px] truncate">
+                    {t.jobDescription}
+                  </td>
                   <td className="py-2 pr-4">{t.quantity}</td>
                   <td className="py-2 pr-4">
-                    <span
-                      className={`px-2 py-0.5 rounded text-xs font-medium ${
-                        t.status === "OPEN"
-                          ? "bg-yellow-100 text-yellow-800"
-                          : "bg-green-100 text-green-800"
-                      }`}
-                    >
-                      {t.status}
-                    </span>
+                    <StatusBadge status={t.status} />
                   </td>
                   <td className="py-2">
                     <Link

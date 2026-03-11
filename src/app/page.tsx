@@ -2,33 +2,30 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { StatusBadge } from "@/components/UI";
 
-interface DashboardData {
-  openCount: number;
-  recentTickets: Array<{
-    id: number;
-    createdAt: string;
-    jobDescription: string;
-    status: string;
-    customer: { name: string };
-  }>;
+interface Ticket {
+  id: number;
+  createdAt: string;
+  jobDescription: string;
+  quantity: number;
+  status: string;
+  customer: { name: string };
 }
 
 export default function Dashboard() {
-  const [data, setData] = useState<DashboardData | null>(null);
+  const [tickets, setTickets] = useState<Ticket[] | null>(null);
 
   useEffect(() => {
     fetch("/api/worktickets")
       .then((r) => r.json())
-      .then((tickets) => {
-        setData({
-          openCount: tickets.filter(
-            (t: { status: string }) => t.status === "OPEN"
-          ).length,
-          recentTickets: tickets.slice(0, 5),
-        });
-      });
+      .then(setTickets);
   }, []);
+
+  const openCount = tickets?.filter((t) => t.status === "OPEN").length ?? 0;
+  const completedCount = tickets?.filter((t) => t.status === "COMPLETED").length ?? 0;
+  const cancelledCount = tickets?.filter((t) => t.status === "CANCELLED").length ?? 0;
+  const totalCount = tickets?.length ?? 0;
 
   return (
     <div>
@@ -48,22 +45,29 @@ export default function Dashboard() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
         <div className="card">
-          <p className="text-sm text-gray-500">Open Tickets</p>
-          <p className="text-3xl font-bold text-blue-600">
-            {data?.openCount ?? "..."}
+          <p className="text-sm text-gray-500">Open</p>
+          <p className="text-3xl font-bold text-yellow-600">
+            {tickets ? openCount : "..."}
           </p>
         </div>
         <div className="card">
-          <p className="text-sm text-gray-500">Total Tickets</p>
+          <p className="text-sm text-gray-500">Completed</p>
+          <p className="text-3xl font-bold text-green-600">
+            {tickets ? completedCount : "..."}
+          </p>
+        </div>
+        <div className="card">
+          <p className="text-sm text-gray-500">Cancelled</p>
+          <p className="text-3xl font-bold text-red-600">
+            {tickets ? cancelledCount : "..."}
+          </p>
+        </div>
+        <div className="card">
+          <p className="text-sm text-gray-500">Total</p>
           <p className="text-3xl font-bold text-gray-800">
-            {data?.recentTickets !== undefined
-              ? data.openCount +
-                (data.recentTickets.length - data.openCount >= 0
-                  ? 0
-                  : 0)
-              : "..."}
+            {tickets ? totalCount : "..."}
           </p>
         </div>
       </div>
@@ -71,50 +75,48 @@ export default function Dashboard() {
       {/* Recent tickets */}
       <div className="card">
         <h2 className="text-lg font-semibold mb-4">Recent Tickets</h2>
-        {!data ? (
+        {!tickets ? (
           <p className="text-gray-500">Loading...</p>
-        ) : data.recentTickets.length === 0 ? (
+        ) : tickets.length === 0 ? (
           <p className="text-gray-500">No tickets yet. Create your first work ticket.</p>
         ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b text-left text-gray-500">
-                <th className="pb-2 pr-4">#</th>
-                <th className="pb-2 pr-4">Customer</th>
-                <th className="pb-2 pr-4">Job</th>
-                <th className="pb-2 pr-4">Status</th>
-                <th className="pb-2"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.recentTickets.map((t) => (
-                <tr key={t.id} className="border-b last:border-0">
-                  <td className="py-2 pr-4">{t.id}</td>
-                  <td className="py-2 pr-4">{t.customer.name}</td>
-                  <td className="py-2 pr-4">{t.jobDescription}</td>
-                  <td className="py-2 pr-4">
-                    <span
-                      className={`px-2 py-0.5 rounded text-xs font-medium ${
-                        t.status === "OPEN"
-                          ? "bg-yellow-100 text-yellow-800"
-                          : "bg-green-100 text-green-800"
-                      }`}
-                    >
-                      {t.status}
-                    </span>
-                  </td>
-                  <td className="py-2">
-                    <Link
-                      href={`/worktickets/${t.id}`}
-                      className="text-blue-600 hover:underline"
-                    >
-                      View
-                    </Link>
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b text-left text-gray-500">
+                  <th className="pb-2 pr-4">#</th>
+                  <th className="pb-2 pr-4">Customer</th>
+                  <th className="pb-2 pr-4 hidden sm:table-cell">Job</th>
+                  <th className="pb-2 pr-4">Qty</th>
+                  <th className="pb-2 pr-4">Status</th>
+                  <th className="pb-2"></th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {tickets.slice(0, 10).map((t) => (
+                  <tr key={t.id} className="border-b last:border-0">
+                    <td className="py-2 pr-4 font-medium">{t.id}</td>
+                    <td className="py-2 pr-4">{t.customer.name}</td>
+                    <td className="py-2 pr-4 hidden sm:table-cell max-w-[200px] truncate">
+                      {t.jobDescription}
+                    </td>
+                    <td className="py-2 pr-4">{t.quantity}</td>
+                    <td className="py-2 pr-4">
+                      <StatusBadge status={t.status} />
+                    </td>
+                    <td className="py-2">
+                      <Link
+                        href={`/worktickets/${t.id}`}
+                        className="text-blue-600 hover:underline"
+                      >
+                        View
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </div>

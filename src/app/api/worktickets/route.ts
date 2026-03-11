@@ -7,9 +7,12 @@ export async function GET(request: NextRequest) {
   const format = request.nextUrl.searchParams.get("format");
 
   const where: Record<string, unknown> = {};
-  if (status === "OPEN" || status === "COMPLETED") {
+
+  // Filter by status — supports OPEN, COMPLETED, CANCELLED
+  if (status === "OPEN" || status === "COMPLETED" || status === "CANCELLED") {
     where.status = status;
   }
+
   if (search) {
     where.OR = [
       { jobDescription: { contains: search, mode: "insensitive" } },
@@ -27,11 +30,11 @@ export async function GET(request: NextRequest) {
   // CSV export
   if (format === "csv") {
     const header =
-      "Ticket #,Date,Customer,Order Number,Job Description,Quantity,Status\n";
+      "Ticket #,Date,Customer,Order Number,Job Description,Quantity,Status,Cancel Reason\n";
     const rows = tickets
       .map(
         (t) =>
-          `${t.id},"${t.createdAt.toISOString()}","${t.customer.name}","${t.customerOrderNumber || ""}","${t.jobDescription}",${t.quantity},${t.status}`
+          `${t.id},"${t.createdAt.toISOString()}","${t.customer.name}","${t.customerOrderNumber || ""}","${t.jobDescription}",${t.quantity},${t.status},"${t.cancelReason || ""}"`
       )
       .join("\n");
     return new NextResponse(header + rows, {
@@ -53,6 +56,13 @@ export async function POST(request: NextRequest) {
     if (!customerId || !jobDescription?.trim() || !quantity) {
       return NextResponse.json(
         { error: "Customer, job description, and quantity are required" },
+        { status: 400 }
+      );
+    }
+
+    if (parseInt(quantity) < 1) {
+      return NextResponse.json(
+        { error: "Quantity must be at least 1" },
         { status: 400 }
       );
     }

@@ -14,6 +14,7 @@ model Customer {
   contactPerson   String?      @map("contact_person")
   contactCell     String?      @map("contact_cell")
   email           String?
+  archived        Boolean      @default(false)
   createdAt       DateTime     @default(now()) @map("created_at")
   workTickets     WorkTicket[]
 
@@ -28,6 +29,8 @@ model WorkTicket {
   jobDescription      String         @map("job_description")
   quantity            Int
   status              TicketStatus   @default(OPEN)
+  cancelReason        String?        @map("cancel_reason")
+  cancelledAt         DateTime?      @map("cancelled_at")
   customer            Customer       @relation(fields: [customerId], references: [id])
   deliveryNotes       DeliveryNote[]
 
@@ -48,4 +51,5 @@ model DeliveryNote {
 enum TicketStatus {
   OPEN
   COMPLETED
+  CANCELLED
 }
