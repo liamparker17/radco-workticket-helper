@@ -1,0 +1,51 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Customer {
+  id              Int          @id @default(autoincrement())
+  name            String
+  telephoneNumber String?      @map("telephone_number")
+  contactPerson   String?      @map("contact_person")
+  contactCell     String?      @map("contact_cell")
+  email           String?
+  createdAt       DateTime     @default(now()) @map("created_at")
+  workTickets     WorkTicket[]
+
+  @@map("customers")
+}
+
+model WorkTicket {
+  id                  Int            @id @default(autoincrement())
+  createdAt           DateTime       @default(now()) @map("created_at")
+  customerId          Int            @map("customer_id")
+  customerOrderNumber String?        @map("customer_order_number")
+  jobDescription      String         @map("job_description")
+  quantity            Int
+  status              TicketStatus   @default(OPEN)
+  customer            Customer       @relation(fields: [customerId], references: [id])
+  deliveryNotes       DeliveryNote[]
+
+  @@map("work_tickets")
+}
+
+model DeliveryNote {
+  id                 Int        @id @default(autoincrement())
+  deliveryNoteNumber Int        @map("delivery_note_number")
+  workTicketId       Int        @map("work_ticket_id")
+  quantityDelivered  Int        @map("quantity_delivered")
+  createdAt          DateTime   @default(now()) @map("created_at")
+  workTicket         WorkTicket @relation(fields: [workTicketId], references: [id])
+
+  @@map("delivery_notes")
+}
+
+enum TicketStatus {
+  OPEN
+  COMPLETED
+}
